@@ -49,22 +49,25 @@ class CoreGroup(object):
 
 class GlobalQueueHost(object):
 
-    def __init__(self, env, num_cores, histograms, deq_cost, flow_config,
-                 opts):
+    def __init__(self, env, controller, worker_id, num_cores, histograms,
+                 deq_cost, flow_config, opts):
 
         self.env = env
+        self.worker_id = worker_id
         self.core_group = CoreGroup()
         self.queue = FIFORequestQueue(env, -1, deq_cost, flow_config)
 
         for i in range(num_cores):
-            new_core = CoreScheduler(env, histograms, i, flow_config)
+            new_core = CoreScheduler(env, controller, histograms, worker_id, i,
+                                     flow_config)
             new_core.set_queue(self.queue)
             new_core.set_host(self)
             self.core_group.append_idle_core(new_core)
 
     def receive_request(self, request):
-        logging.debug('Host: Received request %d from flow %d at %f' %
-                      (request.idx, request.flow_id, self.env.now))
+        logging.debug('Worker %d: Received request %d from flow %d at %f' %
+                      (self.worker_id, request.idx, request.flow_id,
+                       self.env.now))
 
         self.queue.enqueue(request)
 
@@ -161,8 +164,9 @@ class PerFlowQueueHost(object):
         self.queues = PerFlowRequestQueueGroup(env, deq_cost, flow_config)
         for flow in range(len(flow_config)):
             self.queues.add_queue(PerFlowRequestQueue(env, -1,
-                                              load_ratios[flow], num_cores,
-                                              flow_config[flow]))
+                                                      load_ratios[flow],
+                                                      num_cores,
+                                                      flow_config[flow]))
 
         self.dequeue_policy = queue_policy(env, self.queues)
         self.queues.set_dequeue_policy(self.dequeue_policy)

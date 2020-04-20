@@ -105,10 +105,13 @@ class WorkerCore(object):
 
 
 class CoreScheduler(object):
-    def __init__(self, env, histograms, core_id, flow_config):
+    def __init__(self, env, controller, histograms, worker_id, core_id,
+                 flow_config):
         self.env = env
+        self.controller = controller
         self.histograms = histograms
         self.core_id = core_id
+        self.worker_id = worker_id
         self.flow_config = flow_config
         self.active = False
 
@@ -122,36 +125,35 @@ class CoreScheduler(object):
         return self.active
 
     def process_request(self, request):
-        logging.debug('Scheduler: Assigning request {} to core {} at {}'
-                      .format(request.idx, self.core_id, self.env.now))
+        logging.debug('Worker {}: Assigning request {} to core {} at {}'
+                      .format(self.worker_id, request.idx, self.core_id,
+                              self.env.now))
 
         time_slice = self.flow_config[request.flow_id].get('time_slice')
         if (time_slice == 0 or time_slice >= request.exec_time):
             yield self.env.timeout(request.exec_time)
             latency = self.env.now - request.start_time
-            logging.debug('Scheduler: Request {} Latency {}'.format
-                          (request.idx, latency))
+            logging.debug('Worker {}: Request {} Latency {}'.format
+                          (self.worker_id, request.idx, latency))
             flow_id = request.flow_id
             self.histograms.record_value(flow_id, latency)
-            logging.debug('Scheduler: Request {} finished execution at core {}'
-                          ' at {}'.format(request.idx, self.core_id,
-                                          self.env.now))
+            self.controller.receive_completion(request, self.worker_id)
+            logging.debug('Worker {}: Request {} finished execution at core {}'
+                          ' at {}'.format(self.worker_id, request.idx,
+                                          self.core_id, self.env.now))
         else:
             yield self.env.timeout(time_slice + float(
                                    self.flow_config[request.flow_id].
                                    get('preemption')))
             request.exec_time -= time_slice
             request.expected_length -= time_slice
-            logging.debug('Scheduler: Request {} preempted at core {} at {}'
-                          .format(request.idx, self.core_id, self.env.now))
+            logging.debug('Worker {}: Request {} preempted at core {} at {}'
+                          .format(self.worker_id, request.idx, self.core_id,
+                                  self.env.now))
 
             # FIXME Add enqueue cost/lock
             # Add the unfinished request to the queue
-            # print request
-            # print request.idx
-            # print self.queue.q
             self.queue.renqueue(request)
-            # print self.queue.q
 
     # Start up if not already looping
     def become_active(self):

@@ -15,8 +15,8 @@ class Controller(object):
         self.queue = FIFORequestQueue(env, -1, 0, flow_config)
 
         for i in range(num_workers):
-            new_worker = GlobalQueueHost(env, num_cores, histograms, 0,
-                                         flow_config, opts)
+            new_worker = GlobalQueueHost(env, self, i, num_cores,
+                                         histograms, 0, flow_config, opts)
             self.workers.append(new_worker)
 
 
@@ -60,3 +60,10 @@ class LateBindingController(Controller):
                       ' %d at %f to worker %d' % (request.idx,
                                                   request.flow_id,
                                                   self.env.now, worker_idx))
+        self.workers[worker_idx].receive_request(request)
+
+    def receive_completion(self, request, worker_idx):
+        logging.debug('LateBindingController: Received completion from request'
+                      ' %d from flow %d at %f from worker %d' %
+                      (request.idx, request.flow_id, self.env.now, worker_idx))
+        self.worker_capacity[worker_idx] += 1
