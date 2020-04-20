@@ -46,7 +46,7 @@ def main():
     parser.add_argument('-s', '--seed', dest='seed', action='store',
                         help='Set the seed for request generator', default=100)
     parser.add_argument('-t', '--sim_time', dest='sim_time', action='store',
-                        help='Set the simulation time', default=500000)
+                        help='Set the simulation time', default=3600)
     parser.add_argument('--workload-conf', dest='work_conf', action='store',
                         help='Configuration file for the load generation'
                         ' functions', default="../config/work.json")
@@ -106,8 +106,8 @@ def main():
     flow_config = json.loads(open(opts.work_conf).read())
 
     # Create a histogram per flow and a global histogram
-    histograms = Histogram(len(flow_config), float(opts.cores), flow_config,
-                           opts)
+    histograms = Histogram(int(opts.sim_time), len(flow_config),
+                           float(opts.cores), flow_config, opts)
 
     # Get the queue configuration
     ctrl_conf = getattr(sys.modules[__name__], gen_dict[opts.controller_type])

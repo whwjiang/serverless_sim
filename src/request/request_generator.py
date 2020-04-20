@@ -7,10 +7,10 @@ class RequestGenerator(object):
 
     flow_id = 1
 
-    def __init__(self, env, host, load, num_cores):
+    def __init__(self, env, host, rps, num_cores):
         self.env = env
         self.host = host
-        self.load = load
+        self.rps = rps
         self.num_cores = num_cores
 
     def set_host(self, host):
@@ -115,14 +115,12 @@ class ExponentialRequestGenerator(RequestGenerator):
 
 class LogNormalRequestGenerator(RequestGenerator):
     def __init__(self, env, host, inter_gen, num_cores, opts):
-        RequestGenerator.__init__(self, env, host, opts["load"], num_cores)
+        RequestGenerator.__init__(self, env, host, opts["rps"], num_cores)
 
-        self.scale = float(opts["std_dev_request"] ** 2)
-        self.mean = np.log(opts["mean"]**2 / np.sqrt(opts["mean"]**2 +
-                                                     self.scale))
-        self.var = np.sqrt(np.log(self.scale / opts["mean"]**2 + 1))
+        self.mean = opts["mean"]
+        self.std = opts["std_dev_request"]
 
-        arrival_mean = opts["mean"] / self.load / self.num_cores
+        arrival_mean = 1.0 / opts["rps"]
 
         self.inter_gen = inter_gen(arrival_mean, opts)
         self.log_mean = opts["mean"]
@@ -135,11 +133,10 @@ class LogNormalRequestGenerator(RequestGenerator):
             s = self.inter_gen.next()
             yield self.env.timeout(s)
 
-            exec_time = np.random.lognormal(self.mean, self.var)
+            exec_time = np.random.lognormal(self.mean, self.std)
 
             self.host.receive_request(Request(idx, exec_time, self.env.now,
                                               self.flow_id, self.log_mean))
-
             idx += 1
 
 

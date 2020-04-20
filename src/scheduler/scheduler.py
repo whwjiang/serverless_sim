@@ -136,7 +136,7 @@ class CoreScheduler(object):
             logging.debug('Worker {}: Request {} Latency {}'.format
                           (self.worker_id, request.idx, latency))
             flow_id = request.flow_id
-            self.histograms.record_value(flow_id, latency)
+            self.histograms.record_value(flow_id, latency, request.total_time)
             self.controller.receive_completion(request, self.worker_id)
             logging.debug('Worker {}: Request {} finished execution at core {}'
                           ' at {}'.format(self.worker_id, request.idx,

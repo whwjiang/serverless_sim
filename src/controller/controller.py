@@ -31,8 +31,8 @@ class LateBindingController(Controller):
         self.worker_capacity = [worker_capacity] * num_workers
 
     def receive_request(self, request):
-        logging.debug('Controller: Received request %d from flow %d at %f' %
-                      (request.idx, request.flow_id, self.env.now))
+        logging.info('Controller: Received request %d from flow %d at %f' %
+                     (request.idx, request.flow_id, self.env.now))
 
         # Find if there is a worker with available capacity
         worker_idx = -1
@@ -45,9 +45,9 @@ class LateBindingController(Controller):
         # If not, enqueue and wait until one become available
         if worker_idx == -1:
             self.queue.enqueue(request)
-            logging.debug('LateBindingController: Enqueuing request %d from'
-                          ' flow %d at %f' % (request.idx, request.flow_id,
-                                              self.env.now))
+            logging.info('LateBindingController: Enqueuing request %d from'
+                         ' flow %d at %f' % (request.idx, request.flow_id,
+                                             self.env.now))
             return
 
         # If yes, take the overhead into account and assign request for
@@ -56,14 +56,18 @@ class LateBindingController(Controller):
 
     def assign_to_worker(self, request, worker_idx):
         yield self.env.timeout(self.latency)
-        logging.debug('LateBindingController: Assign request %d from flow'
-                      ' %d at %f to worker %d' % (request.idx,
-                                                  request.flow_id,
-                                                  self.env.now, worker_idx))
+        logging.info('LateBindingController: Assign request %d from flow'
+                     ' %d at %f to worker %d' % (request.idx,
+                                                 request.flow_id,
+                                                 self.env.now, worker_idx))
         self.workers[worker_idx].receive_request(request)
 
     def receive_completion(self, request, worker_idx):
-        logging.debug('LateBindingController: Received completion from request'
-                      ' %d from flow %d at %f from worker %d' %
-                      (request.idx, request.flow_id, self.env.now, worker_idx))
+        logging.info('LateBindingController: Received completion from request'
+                     ' %d from flow %d at %f from worker %d' %
+                     (request.idx, request.flow_id, self.env.now, worker_idx))
         self.worker_capacity[worker_idx] += 1
+        queued_request = self.queue.dequeue()
+        if queued_request:
+            self.worker_capacity[worker_idx] -= 1
+            self.env.process(self.assign_to_worker(queued_request, worker_idx))

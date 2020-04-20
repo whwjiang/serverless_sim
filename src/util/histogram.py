@@ -1,27 +1,35 @@
 #!/usr/bin/env python
 
 import json
+import logging
 from hdrh.histogram import HdrHistogram
 
 
 class Histogram(object):
 
-    def __init__(self, num_histograms, cores, flow_config, opts):
-        self.histograms = [HdrHistogram(1, 1000 * 1000, 2)
+    def __init__(self, time, num_histograms, cores, flow_config, opts):
+        self.histograms = [HdrHistogram(1, 60 * 60 * 1000, 2)
                            for i in range(num_histograms)]
-        self.global_histogram = HdrHistogram(1, 1000 * 1000, 2)
+        self.slowdowns = [HdrHistogram(1, 60 * 60 * 1000, 2)
+                          for i in range(num_histograms)]
+        self.global_histogram = HdrHistogram(1, 60 * 60 * 1000, 2)
         self.cores = cores
         self.flow_config = flow_config
         self.violations = [0 for i in range(len(flow_config))]
         self.dropped = [0 for i in range(len(flow_config))]
+        self.completed = [0 for i in range(len(flow_config))]
         self.print_values = opts.print_values
+        self.time = time
         if self.print_values:
             self.print_files = [open(opts.output_file + '_flow' + str(flow),
                                      'w+') for flow in range(len(flow_config))]
 
-    def record_value(self, flow, value):
-        self.global_histogram.record_value(value)
-        self.histograms[flow].record_value(value)
+    def record_value(self, flow, value, exec_time):
+        self.global_histogram.record_value(1000.0 * value)
+        self.histograms[flow].record_value(1000.0 * value)
+        self.slowdowns[flow].record_value(1000.0 * value / exec_time)
+        logging.info(1.0 * value / exec_time)
+        self.completed[flow] += 1
         if self.flow_config[flow].get('slo'):
             if value > self.flow_config[flow].get('slo'):
                 self.violations[flow] += 1
@@ -39,14 +47,25 @@ class Histogram(object):
             # Get the total count of received requests
             total_count = self.histograms[i].get_total_count()
 
-            # Get the 99th latency
-            latency = self.histograms[i].get_value_at_percentile(99)
+            # Get the 50%-90%-99% latency
+            latency50 = self.histograms[i].get_value_at_percentile(50)
+            latency90 = self.histograms[i].get_value_at_percentile(90)
+            latency99 = self.histograms[i].get_value_at_percentile(99)
+
+            # Get the 50%-90%-99% slowdown
+            slowdown50 = self.slowdowns[i].get_value_at_percentile(50)
+            slowdown90 = self.slowdowns[i].get_value_at_percentile(90)
+            slowdown99 = self.slowdowns[i].get_value_at_percentile(99)
 
             # Prepare the json for output
             new_value = {
-                'latency': latency,
-                'per_core_through': (1.0 * (total_count - self.dropped[i]) /
-                                     self.cores),
+                'latency50': latency50 / 1000.0,
+                'latency90': latency90 / 1000.0,
+                'latency99': latency99 / 1000.0,
+                'slowdown50': slowdown50 / 1000.0,
+                'slowdown90': slowdown90 / 1000.0,
+                'slowdown99': slowdown99 / 1000.0,
+                'total_throughput': 1.0 * self.completed[i] / self.time,
                 'slo_success': 1.0 - (1.0 * self.violations[i] / total_count),
                 'dropped_requests': self.dropped[i]
             }
