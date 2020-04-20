@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import json
-import logging
 from hdrh.histogram import HdrHistogram
 
 
@@ -28,7 +27,6 @@ class Histogram(object):
         self.global_histogram.record_value(1000.0 * value)
         self.histograms[flow].record_value(1000.0 * value)
         self.slowdowns[flow].record_value(1000.0 * value / exec_time)
-        logging.info(1.0 * value / exec_time)
         self.completed[flow] += 1
         if self.flow_config[flow].get('slo'):
             if value > self.flow_config[flow].get('slo'):

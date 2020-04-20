@@ -68,6 +68,10 @@ def main():
     parser.add_argument('-w', '--workers', dest='workers', action='store',
                         help='Set the number of worker hosts of the system',
                         default=1)
+    parser.add_argument('--capacity', dest='capacity', action='store',
+                        help=('Set the number of concurrent requests that can'
+                              ' be executing on each worker host'),
+                        default=12)
     parser.add_argument('--latency', dest='latency', action='store',
                         help='Set the controller-worker communication latency',
                         default=0)
@@ -112,7 +116,8 @@ def main():
     # Get the queue configuration
     ctrl_conf = getattr(sys.modules[__name__], gen_dict[opts.controller_type])
     sim_ctrl = ctrl_conf(env, int(opts.workers), int(opts.cores),
-                         float(opts.latency), flow_config, histograms, opts)
+                         int(opts.capacity), float(opts.latency), flow_config,
+                         histograms, opts)
 
     # TODO:Update so that it's parametrizable
     # print "Warning: Need to update sim.py for parameterization and Testing"

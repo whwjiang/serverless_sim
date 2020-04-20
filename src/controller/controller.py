@@ -7,8 +7,8 @@ class Controller(object):
 
     workers = []
 
-    def __init__(self, env, num_workers, num_cores, latency, flow_config,
-                 histograms, opts):
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histograms, opts):
 
         self.latency = latency
         self.env = env
@@ -22,13 +22,13 @@ class Controller(object):
 
 class LateBindingController(Controller):
 
-    def __init__(self, env, num_workers, num_cores, latency, flow_config,
-                 histogram, opts, worker_capacity=12):
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histogram, opts):
         super(LateBindingController, self).__init__(env, num_workers,
-                                                    num_cores, latency,
-                                                    flow_config, histogram,
-                                                    opts)
-        self.worker_capacity = [worker_capacity] * num_workers
+                                                    num_cores, capacity,
+                                                    latency, flow_config,
+                                                    histogram, opts)
+        self.worker_capacity = [capacity] * num_workers
 
     def receive_request(self, request):
         logging.info('Controller: Received request %d from flow %d at %f' %
