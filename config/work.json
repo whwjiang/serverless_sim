@@ -1,23 +1,12 @@
 [
-    {
-        "work_gen": "heavy_tail",
-        "inter_gen": "poisson_arrival",
-        "load": 0.4,
-        "exec_time": 2,
-        "heavy_per": 2,
-        "heavy_time": 2,
-        "time_slice": 0.0,
-        "slo": 4
-    },
-    {
-        "work_gen": "heavy_tail",
-        "inter_gen": "poisson_arrival",
-        "load": 0.4,
-        "exec_time": 10,
-        "heavy_per": 2,
-        "heavy_time": 10,
-        "time_slice": 2.0,
-        "enq_front": true,
-        "slo": 20
-    }
+  {
+    "work_gen": "lognormal_request",
+    "inter_gen": "poisson_arrival",
+    "mean": -0.38,
+    "std_dev_request": 2.36,
+    "rps": 5.0,
+    "time_slice": 0.01,
+    "preemption": 0,
+    "enq_front": false
+  }
 ]
