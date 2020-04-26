@@ -14,6 +14,7 @@ class Histogram(object):
         self.global_histogram = HdrHistogram(1, 60 * 60 * 1000, 2)
         self.cores = cores
         self.flow_config = flow_config
+        self.exec_time = [0 for i in range(len(flow_config))]
         self.violations = [0 for i in range(len(flow_config))]
         self.dropped = [0 for i in range(len(flow_config))]
         self.completed = [0 for i in range(len(flow_config))]
@@ -27,6 +28,7 @@ class Histogram(object):
         self.global_histogram.record_value(1000.0 * value)
         self.histograms[flow].record_value(1000.0 * value)
         self.slowdowns[flow].record_value(1000.0 * value / exec_time)
+        self.exec_time[flow] += exec_time
         self.completed[flow] += 1
         if self.flow_config[flow].get('slo'):
             if value > self.flow_config[flow].get('slo'):
@@ -57,6 +59,8 @@ class Histogram(object):
 
             # Prepare the json for output
             new_value = {
+                'avg_exec_time': (1.0 * self.exec_time[i] /
+                self.histograms[i].get_total_count()),
                 'latency50': latency50 / 1000.0,
                 'latency90': latency90 / 1000.0,
                 'latency99': latency99 / 1000.0,

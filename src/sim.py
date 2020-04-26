@@ -30,7 +30,8 @@ gen_dict = {
     'shinjuku':  'ShinjukuHost',
     'perflow': 'PerFlowQueueHost',
     'staticcore': 'StaticCoreAllocationHost',
-    'latebinding': 'LateBindingController'
+    'latebinding': 'LateBindingController',
+    'leastloaded': 'LeastLoadedController'
 }
 
 
@@ -54,7 +55,7 @@ def main():
     group = parser.add_argument_group('Controller and Host Options')
     group.add_argument('--controller-type', dest='controller_type',
                        action='store', help=('Set the controller configuration'
-                                             ' (late binding)'),
+                                             ' (late binding, least loaded)'),
                        default='latebinding')
     group.add_argument('--host-type', dest='host_type', action='store',
                        help=('Set the host configuration (global queue,'
