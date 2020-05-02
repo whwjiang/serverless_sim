@@ -1,3 +1,4 @@
+import math
 import logging
 
 from host.host import *
@@ -13,6 +14,7 @@ class Controller(object):
         self.latency = latency
         self.env = env
         self.queue = FIFORequestQueue(env, -1, 0, flow_config)
+        self.num_cores = num_cores
 
         for i in range(num_workers):
             new_worker = GlobalQueueHost(env, self, i, num_cores,
@@ -122,4 +124,67 @@ class LeastLoadedController(Controller):
         queued_request = self.queue.dequeue()
         if queued_request:
             self.worker_loads[worker_idx] += 1
+            self.env.process(self.assign_to_worker(queued_request, worker_idx))
+
+
+class LPSController(Controller):
+
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histogram, opts):
+        super(LPSController, self).__init__(env, num_workers, num_cores,
+                                            capacity, latency, flow_config,
+                                            histogram, opts)
+        #self.capacity = (int(math.floor(1 / (1 - flow_config[0]['load'])) + 1) *
+        #                 num_cores)
+        self.capacity = max(num_cores, int(math.floor(1 / (1 -
+            flow_config[0]['load'])) + 1))
+        self.loads = [0] * num_workers
+
+    def receive_request(self, request):
+        logging.info('Controller: Received request %d from flow %d at %f' %
+                     (request.idx, request.flow_id, self.env.now))
+
+        # Find if there is a worker with available capacity
+        worker_idx = -1
+        for i in range(len(self.loads)):
+            if self.loads[i] < self.num_cores:
+                self.loads[i] += 1
+                worker_idx = i
+                break
+
+        if worker_idx == -1 and min(self.loads) < self.capacity:
+            worker_idx = 0
+            for i in range(len(self.loads)):
+                if self.loads[i] < self.loads[worker_idx]:
+                    worker_idx = i
+            self.loads[worker_idx] += 1
+
+        # If not, enqueue and wait until one become available
+        if worker_idx == -1:
+            self.queue.enqueue(request)
+            logging.info('LPSController: Enqueuing request %d from'
+                         ' flow %d at %f' % (request.idx, request.flow_id,
+                                             self.env.now))
+            return
+
+        # If yes, take the overhead into account and assign request for
+        # execution
+        self.env.process(self.assign_to_worker(request, worker_idx))
+
+    def assign_to_worker(self, request, worker_idx):
+        yield self.env.timeout(self.latency)
+        logging.info('LPSController: Assign request %d from flow'
+                     ' %d at %f to worker %d' % (request.idx,
+                                                 request.flow_id,
+                                                 self.env.now, worker_idx))
+        self.workers[worker_idx].receive_request(request)
+
+    def receive_completion(self, request, worker_idx):
+        logging.info('LPSController: Received completion from request'
+                     ' %d from flow %d at %f from worker %d' %
+                     (request.idx, request.flow_id, self.env.now, worker_idx))
+        self.loads[worker_idx] -= 1
+        queued_request = self.queue.dequeue()
+        if queued_request:
+            self.loads[worker_idx] += 1
             self.env.process(self.assign_to_worker(queued_request, worker_idx))

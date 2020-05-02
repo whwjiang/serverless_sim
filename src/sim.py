@@ -31,7 +31,8 @@ gen_dict = {
     'perflow': 'PerFlowQueueHost',
     'staticcore': 'StaticCoreAllocationHost',
     'latebinding': 'LateBindingController',
-    'leastloaded': 'LeastLoadedController'
+    'leastloaded': 'LeastLoadedController',
+    'lps': 'LPSController'
 }
 
 
@@ -55,7 +56,8 @@ def main():
     group = parser.add_argument_group('Controller and Host Options')
     group.add_argument('--controller-type', dest='controller_type',
                        action='store', help=('Set the controller configuration'
-                                             ' (late binding, least loaded)'),
+                                             ' (late binding, least loaded,'
+                                             ' lps)'),
                        default='latebinding')
     group.add_argument('--host-type', dest='host_type', action='store',
                        help=('Set the host configuration (global queue,'
@@ -144,7 +146,9 @@ def main():
             opts.cores = int(opts.cores) - 1
 
         multigenerator.add_generator(work_gen(histograms, env, sim_ctrl,
-                                              inter_gen, int(opts.cores),
+                                              inter_gen,
+                                              (int(opts.workers) *
+                                               int(opts.cores)),
                                               params))
 
     multigenerator.begin_generation()

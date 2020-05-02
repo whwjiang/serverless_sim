@@ -1,3 +1,4 @@
+import math
 import random
 from request import Request
 import numpy as np
@@ -7,10 +8,10 @@ class RequestGenerator(object):
 
     flow_id = 1
 
-    def __init__(self, env, host, rps, num_cores):
+    def __init__(self, env, host, load, num_cores):
         self.env = env
         self.host = host
-        self.rps = rps
+        self.load = load
         self.num_cores = num_cores
 
     def set_host(self, host):
@@ -116,16 +117,16 @@ class ExponentialRequestGenerator(RequestGenerator):
 
 class LogNormalRequestGenerator(RequestGenerator):
     def __init__(self, hist, env, host, inter_gen, num_cores, opts):
-        RequestGenerator.__init__(self, env, host, opts["rps"], num_cores)
+        RequestGenerator.__init__(self, env, host, opts["load"], num_cores)
 
         self.mean = opts["mean"]
         self.std = opts["std_dev_request"]
         self.hist = hist
 
-        arrival_mean = 1.0 / opts["rps"]
+        self.log_mean = math.exp(self.mean + (self.std * self.std) / 2)
+        arrival_mean = self.log_mean / self.load / self.num_cores
 
         self.inter_gen = inter_gen(arrival_mean, opts)
-        self.log_mean = opts["mean"]
 
     def run(self):
         idx = 0

@@ -35,6 +35,8 @@ class Histogram(object):
         self.active_requests += 1
 
     def record_value(self, flow, value, exec_time, start_time):
+        if self.active_requests == 0 and self.env.now > 2 * self.time:
+            raise EndException
         # Do not record values the region of interest
         if start_time < self.time or start_time > 2 * self.time:
             return
@@ -52,8 +54,6 @@ class Histogram(object):
 
         # Exit if all requests within the region of interest are served
         self.active_requests -= 1
-        if self.active_requests == 0 and self.env.now > 2 * self.time:
-            raise EndException
 
     def print_info(self):
         info = []
@@ -87,6 +87,7 @@ class Histogram(object):
                 'slowdown90': slowdown90 / 1000.0,
                 'slowdown99': slowdown99 / 1000.0,
                 'total_throughput': 1.0 * self.completed[i] / self.time,
+                'total_completed': self.completed[i],
                 'slo_success': 1.0 - (1.0 * self.violations[i] / total_count),
                 'dropped_requests': self.dropped[i]
             }
