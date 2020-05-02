@@ -34,7 +34,7 @@ class RequestGenerator(object):
 
 
 class MultipleRequestGenerator(object):
-    def __init__(self, env, host):
+    def __init__(self, histogram, env, host):
         self.env = env
         self.host = host
         self.generators = []
@@ -58,7 +58,7 @@ class MultipleRequestGenerator(object):
 
 
 class HeavyTailRequestGenerator(RequestGenerator):
-    def __init__(self, env, host, inter_gen, num_cores, opts):
+    def __init__(self, hist, env, host, inter_gen, num_cores, opts):
         # Tail percent of 2 means that 2% of requests require "tail latency"
         # execution time, the others require "latency" execution
         # time.
@@ -66,7 +66,7 @@ class HeavyTailRequestGenerator(RequestGenerator):
         self.exec_time = opts["exec_time"]
         self.heavy_exec_time = opts["heavy_time"]
         self.heavy_percent = opts["heavy_per"]
-
+        self.hist = hist
         self.mean = (self.heavy_exec_time * (self.heavy_percent / 100.0) +
                      self.exec_time * ((100 - self.heavy_percent) / 100.0))
         inv_load = 1.0 / self.load
@@ -91,9 +91,10 @@ class HeavyTailRequestGenerator(RequestGenerator):
 
 
 class ExponentialRequestGenerator(RequestGenerator):
-    def __init__(self, env, host, inter_gen, num_cores, opts):
+    def __init__(self, hist, env, host, inter_gen, num_cores, opts):
         RequestGenerator.__init__(self, env, host, opts["load"], num_cores)
         self.mean = float(opts["mean"])
+        self.hist = hist
         arrival_mean = self.mean / self.load / self.num_cores
         self.inter_gen = inter_gen(arrival_mean, opts)
 
@@ -104,7 +105,7 @@ class ExponentialRequestGenerator(RequestGenerator):
             # Generate inter-arrival time
             s = self.inter_gen.next()
             yield self.env.timeout(s)
-
+            self.hist.add_request()
             exec_time = np.random.exponential(self.mean)
 
             self.host.receive_request(Request(idx, exec_time, self.env.now,
@@ -114,11 +115,12 @@ class ExponentialRequestGenerator(RequestGenerator):
 
 
 class LogNormalRequestGenerator(RequestGenerator):
-    def __init__(self, env, host, inter_gen, num_cores, opts):
+    def __init__(self, hist, env, host, inter_gen, num_cores, opts):
         RequestGenerator.__init__(self, env, host, opts["rps"], num_cores)
 
         self.mean = opts["mean"]
         self.std = opts["std_dev_request"]
+        self.hist = hist
 
         arrival_mean = 1.0 / opts["rps"]
 
@@ -132,7 +134,7 @@ class LogNormalRequestGenerator(RequestGenerator):
             # Generate inter-arrival time
             s = self.inter_gen.next()
             yield self.env.timeout(s)
-
+            self.hist.add_request()
             exec_time = np.random.lognormal(self.mean, self.std)
 
             self.host.receive_request(Request(idx, exec_time, self.env.now,
@@ -141,7 +143,7 @@ class LogNormalRequestGenerator(RequestGenerator):
 
 
 class ParetoRequestGenerator(RequestGenerator):
-    def __init__(self, env, host, inter_gen, num_cores, opts):
+    def __init__(self, hist, env, host, inter_gen, num_cores, opts):
         RequestGenerator.__init__(self, env, host, opts["load"], num_cores)
 
         self.scale = 1 + np.sqrt(1.0 + opts["mean"]**2 /
@@ -150,6 +152,7 @@ class ParetoRequestGenerator(RequestGenerator):
 
         arrival_mean = opts["mean"] / self.load / self.num_cores
 
+        self.hist = hist
         self.inter_gen = inter_gen(arrival_mean, opts)
         self.mean = opts["mean"]
 
@@ -160,6 +163,7 @@ class ParetoRequestGenerator(RequestGenerator):
             s = self.inter_gen.next()
             yield self.env.timeout(s)
 
+            self.hist.add_request()
             exec_time = (np.random.pareto(self.scale) + 1) * self.mu
             self.host.receive_request(Request(idx, exec_time, self.env.now,
                                               self.flow_id, self.mean))
@@ -167,7 +171,7 @@ class ParetoRequestGenerator(RequestGenerator):
 
 
 class NormalRequestGenerator(RequestGenerator):
-    def __init__(self, env, host, inter_gen, num_cores, opts):
+    def __init__(self, hist, env, host, inter_gen, num_cores, opts):
         RequestGenerator.__init__(self, env, host, opts["load"], num_cores)
 
         self.mu = opts["mean"]
@@ -183,6 +187,7 @@ class NormalRequestGenerator(RequestGenerator):
             s = self.inter_gen.next()
             yield self.env.timeout(s)
 
+            self.hist.add_request()
             exec_time = -1
             while (exec_time < 0 or exec_time > 2 * self.mu):
                 exec_time = np.random.normal(self.mu, self.std)

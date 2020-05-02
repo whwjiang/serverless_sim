@@ -9,7 +9,7 @@ import argparse
 
 
 # import matplotlib.pyplot as plt
-from util.histogram import Histogram
+from util.histogram import *
 
 from host.host import *
 from controller.controller import *
@@ -111,7 +111,7 @@ def main():
     flow_config = json.loads(open(opts.work_conf).read())
 
     # Create a histogram per flow and a global histogram
-    histograms = Histogram(int(opts.sim_time), len(flow_config),
+    histograms = Histogram(env, int(opts.sim_time), len(flow_config),
                            float(opts.cores), flow_config, opts)
 
     # Get the queue configuration
@@ -128,7 +128,7 @@ def main():
     #                                     histograms, len(flow_config),
     #                                     [0.4, 0.4])
 
-    multigenerator = MultipleRequestGenerator(env, sim_ctrl)
+    multigenerator = MultipleRequestGenerator(histograms, env, sim_ctrl)
 
     # Create one object per flow
     for flow in flow_config:
@@ -143,16 +143,18 @@ def main():
         if (opts.host_type == "shinjuku"):
             opts.cores = int(opts.cores) - 1
 
-        multigenerator.add_generator(work_gen(env, sim_ctrl, inter_gen,
-                                              int(opts.cores), params))
+        multigenerator.add_generator(work_gen(histograms, env, sim_ctrl,
+                                              inter_gen, int(opts.cores),
+                                              params))
 
     multigenerator.begin_generation()
 
     # Run the simulation
-    env.run(until=opts.sim_time)
-
-    # Print results in json format
-    histograms.print_info()
+    try:
+        env.run(until=1000 * opts.sim_time)
+    except EndException:
+        # Print results in json format
+        histograms.print_info()
 
 
 if __name__ == "__main__":

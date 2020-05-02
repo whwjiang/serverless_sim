@@ -3,10 +3,12 @@
 import json
 from hdrh.histogram import HdrHistogram
 
+class EndException(Exception):
+    pass
 
 class Histogram(object):
 
-    def __init__(self, time, num_histograms, cores, flow_config, opts):
+    def __init__(self, env, time, num_histograms, cores, flow_config, opts):
         self.histograms = [HdrHistogram(1, 60 * 60 * 1000, 2)
                            for i in range(num_histograms)]
         self.slowdowns = [HdrHistogram(1, 60 * 60 * 1000, 2)
@@ -20,11 +22,23 @@ class Histogram(object):
         self.completed = [0 for i in range(len(flow_config))]
         self.print_values = opts.print_values
         self.time = time
+        self.env = env
+        self.active_requests = 0
         if self.print_values:
             self.print_files = [open(opts.output_file + '_flow' + str(flow),
                                      'w+') for flow in range(len(flow_config))]
 
-    def record_value(self, flow, value, exec_time):
+    def add_request(self):
+        # Do not record values the region of interest
+        if self.env.now < self.time or self.env.now > 2 * self.time:
+            return
+        self.active_requests += 1
+
+    def record_value(self, flow, value, exec_time, start_time):
+        # Do not record values the region of interest
+        if start_time < self.time or start_time > 2 * self.time:
+            return
+
         self.global_histogram.record_value(1000.0 * value)
         self.histograms[flow].record_value(1000.0 * value)
         self.slowdowns[flow].record_value(1000.0 * value / exec_time)
@@ -35,6 +49,11 @@ class Histogram(object):
                 self.violations[flow] += 1
         if self.print_values:
             self.print_files[flow].write(str(value) + '\n')
+
+        # Exit if all requests within the region of interest are served
+        self.active_requests -= 1
+        if self.active_requests == 0 and self.env.now > 2 * self.time:
+            raise EndException
 
     def print_info(self):
         info = []
