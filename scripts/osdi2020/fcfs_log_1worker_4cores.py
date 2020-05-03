@@ -52,7 +52,7 @@ def main():
         config_jsons.append(temp_conf)
 
     seeds = [1000, 1001, 1002, 1003, 1004, 1005,
-             1006, 1007, 1008, 1008]
+             1006, 1007, 1008, 1009]
 
     q = Queue()
     idle = []
@@ -110,7 +110,7 @@ def run_sim(latency, workers, cores, cap, config_json, iterations, seeds, q):
                 "--workload-conf", str(config_file),
                 "--latency", str(latency),
                 "--capacity", str(cap),
-                "-t", str(36000)]
+                "-t", str(3600)]
 
     per_flow_throughput = []
     per_flow_latency = []

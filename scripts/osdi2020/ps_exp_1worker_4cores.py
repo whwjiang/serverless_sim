@@ -111,7 +111,7 @@ def run_sim(latency, workers, cores, cap, config_json, iterations, seeds, q):
                 "--capacity", str(cap),
                 "--capacity", str(cap),
                 "--controller-type", "leastloaded",
-                "-t", str(36000)]
+                "-t", str(3600)]
 
     per_flow_throughput = []
     per_flow_latency = []

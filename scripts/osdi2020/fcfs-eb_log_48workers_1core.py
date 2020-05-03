@@ -11,7 +11,7 @@ import subprocess
 
 from multiprocessing import Process, Queue
 
-OUTPUT_FILE = "../../out/osdi2020/fcfs_exp_1worker_4cores"
+OUTPUT_FILE = "../../out/osdi2020/fcfs-eb_log_48workers_1core"
 
 
 def dict_mean(dict_list):
@@ -25,19 +25,19 @@ def main():
     global OUTPUT_DIR
     # Set the simulation parameters
     iterations = 10
-    core_count = [4]
-    worker_count = [1]
+    core_count = [1]
+    worker_count = [48]
     latencies = [0]
-    capacities = [4]
+    capacities = [1000000]
 
     cores_to_run = 24
     batch_run = math.ceil(float(cores_to_run) / iterations)
 
     config_jsons = []
     default_json = [{
-        "work_gen": "exponential_request",
+        "work_gen": "lognormal_request",
         "inter_gen": "poisson_arrival",
-        "mean": 1.0,
+        "mean": -0.38,
         "std_dev_request": 2.36,
         "load": 0.1,
         "time_slice": 0.0,
@@ -110,6 +110,7 @@ def run_sim(latency, workers, cores, cap, config_json, iterations, seeds, q):
                 "--workload-conf", str(config_file),
                 "--latency", str(latency),
                 "--capacity", str(cap),
+                "--controller-type", 'leastloaded',
                 "-t", str(3600)]
 
     per_flow_throughput = []
