@@ -1,6 +1,8 @@
 import math
 import logging
 
+from operator import itemgetter
+
 from host.host import *
 
 
@@ -17,8 +19,13 @@ class Controller(object):
         self.num_cores = num_cores
 
         for i in range(num_workers):
-            new_worker = GlobalQueueHost(env, self, i, num_cores,
-                                         histograms, 0, flow_config, opts)
+            if 'core_list' in flow_config[0]:
+                new_worker = GlobalQueueHost(env, self, i,
+                                             flow_config[0]['core_list'][i],
+                                             histograms, 0, flow_config, opts)
+            else:
+                new_worker = GlobalQueueHost(env, self, i, num_cores,
+                                             histograms, 0, flow_config, opts)
             self.workers.append(new_worker)
 
 
@@ -30,7 +37,10 @@ class LateBindingController(Controller):
                                                     num_cores, capacity,
                                                     latency, flow_config,
                                                     histogram, opts)
-        self.worker_capacity = [capacity] * num_workers
+        if 'core_list' in flow_config[0]:
+            self.worker_capacity = flow_config[0]['core_list'][:]
+        else:
+            self.worker_capacity = [num_cores] * num_workers
 
     def receive_request(self, request):
         logging.info('Controller: Received request %d from flow %d at %f' %
@@ -75,6 +85,65 @@ class LateBindingController(Controller):
             self.env.process(self.assign_to_worker(queued_request, worker_idx))
 
 
+class HeterogeneousLeastLoadedController(Controller):
+
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histogram, opts):
+        super(HeterogeneousLeastLoadedController,
+              self).__init__(env, num_workers, num_cores, capacity,
+                             latency, flow_config, histogram, opts)
+        self.core_list = flow_config[0]['core_list']
+        self.capacity = capacity
+        self.worker_loads = [0] * num_workers
+
+    def receive_request(self, request):
+        logging.info('Controller: Received request %d from flow %d at %f' %
+                     (request.idx, request.flow_id, self.env.now))
+
+        # Find least-loaded worker
+        worker_idx = -1
+        for i in range(len(self.core_list)):
+            if self.worker_loads[i] < self.core_list[i]:
+                worker_idx = i
+                break
+
+        if worker_idx == -1:
+            worker_idx = self.worker_loads.index(min(self.worker_loads))
+
+        # If we reached capacity, wait until a worker becomes available
+        if worker_idx == -1:
+            self.queue.enqueue(request)
+            logging.info('HeterogeneousLeastLoadedController: Enqueuing'
+                         'request %d from flow %d at %f' % (request.idx,
+                                                            request.flow_id,
+                                                            self.env.now))
+            return
+
+        # Take the overhead into account and assign request for
+        # execution
+        self.worker_loads[worker_idx] += 1
+        self.env.process(self.assign_to_worker(request, worker_idx))
+
+    def assign_to_worker(self, request, worker_idx):
+        yield self.env.timeout(self.latency)
+        logging.info('HeterogeneousLeastLoadedController: Assign request %d'
+                     ' from flow %d at %f to worker %d' % (request.idx,
+                                                           request.flow_id,
+                                                           self.env.now,
+                                                           worker_idx))
+        self.workers[worker_idx].receive_request(request)
+
+    def receive_completion(self, request, worker_idx):
+        logging.info('HeterogeneousLeastLoadedController: Received completion'
+                     ' from request %d from flow %d at %f from worker %d' %
+                     (request.idx, request.flow_id, self.env.now, worker_idx))
+        self.worker_loads[worker_idx] -= 1
+        queued_request = self.queue.dequeue()
+        if queued_request:
+            self.worker_loads[worker_idx] += 1
+            self.env.process(self.assign_to_worker(queued_request, worker_idx))
+
+
 class LeastLoadedController(Controller):
 
     def __init__(self, env, num_workers, num_cores, capacity, latency,
@@ -110,15 +179,77 @@ class LeastLoadedController(Controller):
 
     def assign_to_worker(self, request, worker_idx):
         yield self.env.timeout(self.latency)
-        logging.info('LateBindingController: Assign request %d from flow'
+        logging.info('LeastLoadedController: Assign request %d from flow'
                      ' %d at %f to worker %d' % (request.idx,
                                                  request.flow_id,
                                                  self.env.now, worker_idx))
         self.workers[worker_idx].receive_request(request)
 
     def receive_completion(self, request, worker_idx):
-        logging.info('LateBindingController: Received completion from request'
+        logging.info('LeastLoadedController: Received completion from request'
                      ' %d from flow %d at %f from worker %d' %
+                     (request.idx, request.flow_id, self.env.now, worker_idx))
+        self.worker_loads[worker_idx] -= 1
+        queued_request = self.queue.dequeue()
+        if queued_request:
+            self.worker_loads[worker_idx] += 1
+            self.env.process(self.assign_to_worker(queued_request, worker_idx))
+
+
+class ProportionalLeastLoadedController(Controller):
+
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histogram, opts):
+        super(ProportionalLeastLoadedController,
+              self).__init__(env, num_workers, num_cores, capacity,
+                             latency, flow_config, histogram, opts)
+        self.core_list = flow_config[0]['core_list']
+        self.capacity = capacity
+        self.worker_loads = [0] * num_workers
+
+    def receive_request(self, request):
+        logging.info('Controller: Received request %d from flow %d at %f' %
+                     (request.idx, request.flow_id, self.env.now))
+
+        # Find least-loaded worker
+        worker_idx = -1
+        for i in range(len(self.core_list)):
+            if self.worker_loads[i] < self.core_list[i]:
+                worker_idx = i
+                break
+
+        if worker_idx == -1:
+            new_loads = map(lambda x: x + 1, self.worker_loads)
+            prop_loads = [1.0 * a / b for a, b in zip(new_loads,
+                                                      self.core_list)]
+            worker_idx = min(enumerate(prop_loads), key=itemgetter(1))[0]
+
+        # If we reached capacity, wait until a worker becomes available
+        if worker_idx == -1:
+            self.queue.enqueue(request)
+            logging.info('ProportionalLeastLoadedController: Enqueuing request'
+                         ' %d from flow %d at %f' % (request.idx,
+                                                     request.flow_id,
+                                                     self.env.now))
+            return
+
+        # Take the overhead into account and assign request for
+        # execution
+        self.worker_loads[worker_idx] += 1
+        self.env.process(self.assign_to_worker(request, worker_idx))
+
+    def assign_to_worker(self, request, worker_idx):
+        yield self.env.timeout(self.latency)
+        logging.info('ProportionalLeastLoadedController: Assign request %d'
+                     ' from flow %d at %f to worker %d' % (request.idx,
+                                                           request.flow_id,
+                                                           self.env.now,
+                                                           worker_idx))
+        self.workers[worker_idx].receive_request(request)
+
+    def receive_completion(self, request, worker_idx):
+        logging.info('ProportionalLeastLoadedController: Received completion'
+                     ' from request  %d from flow %d at %f from worker %d' %
                      (request.idx, request.flow_id, self.env.now, worker_idx))
         self.worker_loads[worker_idx] -= 1
         queued_request = self.queue.dequeue()
@@ -134,8 +265,6 @@ class LPSController(Controller):
         super(LPSController, self).__init__(env, num_workers, num_cores,
                                             capacity, latency, flow_config,
                                             histogram, opts)
-        #self.capacity = (int(math.floor(1 / (1 - flow_config[0]['load'])) + 1) *
-        #                 num_cores)
         self.capacity = max(num_cores, int(math.floor(1 / (1 -
             flow_config[0]['load'])) + 1))
         self.loads = [0] * num_workers
