@@ -34,7 +34,8 @@ gen_dict = {
     'leastloaded': 'LeastLoadedController',
     'lps': 'LPSController',
     'heterogeneousll': 'HeterogeneousLeastLoadedController',
-    'proportionalll': 'ProportionalLeastLoadedController'
+    'proportionalll': 'ProportionalLeastLoadedController',
+    'random': 'RandomController'
 }
 
 

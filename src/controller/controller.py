@@ -1,4 +1,5 @@
 import math
+import random
 import logging
 
 from operator import itemgetter
@@ -17,6 +18,7 @@ class Controller(object):
         self.env = env
         self.queue = FIFORequestQueue(env, -1, 0, flow_config)
         self.num_cores = num_cores
+        self.num_workers = num_workers
 
         for i in range(num_workers):
             if 'core_list' in flow_config[0]:
@@ -317,3 +319,36 @@ class LPSController(Controller):
         if queued_request:
             self.loads[worker_idx] += 1
             self.env.process(self.assign_to_worker(queued_request, worker_idx))
+
+
+class RandomController(Controller):
+
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histogram, opts):
+        super(RandomController, self).__init__(env, num_workers, num_cores,
+                                               capacity, latency, flow_config,
+                                               histogram, opts)
+
+    def receive_request(self, request):
+        logging.info('Controller: Received request %d from flow %d at %f' %
+                     (request.idx, request.flow_id, self.env.now))
+
+        # Choose a random worker.
+        worker_idx = random.randint(0, self.num_workers - 1)
+
+        # Take the overhead into account and assign request for
+        # execution
+        self.env.process(self.assign_to_worker(request, worker_idx))
+
+    def assign_to_worker(self, request, worker_idx):
+        yield self.env.timeout(self.latency)
+        logging.info('RandomController: Assign request %d from flow'
+                     ' %d at %f to worker %d' % (request.idx,
+                                                 request.flow_id,
+                                                 self.env.now, worker_idx))
+        self.workers[worker_idx].receive_request(request)
+
+    def receive_completion(self, request, worker_idx):
+        logging.info('RandomController: Received completion from request'
+                     ' %d from flow %d at %f from worker %d' %
+                     (request.idx, request.flow_id, self.env.now, worker_idx))
