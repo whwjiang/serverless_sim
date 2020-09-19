@@ -124,23 +124,34 @@ class CoreScheduler(object):
     def active(self):
         return self.active
 
+    def reset_start_time(self):
+        self.start_time = self.env.now
+
     def process_request(self, request):
         logging.debug('Worker {}: Assigning request {} to core {} at {}'
                       .format(self.worker_id, request.idx, self.core_id,
                               self.env.now))
+        self.request = request
+        self.start_time = self.env.now
 
         time_slice = self.flow_config[request.flow_id].get('time_slice')
         if (time_slice == 0 or time_slice >= request.exec_time):
             yield self.env.timeout(request.exec_time)
-            latency = self.env.now - request.start_time
+            if (self.env.now - self.start_time + 1e-5 < self.request.exec_time):
+                #logging.debug('Worker {}.{}:Request {} yielded early {} at {}'.format(
+                #              self.worker_id, self.core_id, self.request.idx,
+                #              self.env.now - self.start_time - self.request.exec_time,
+                #              self.env.now))
+                return
+            latency = self.env.now - self.request.start_time
             logging.debug('Worker {}: Request {} Latency {}'.format
-                          (self.worker_id, request.idx, latency))
-            flow_id = request.flow_id
-            self.histograms.record_value(flow_id, latency, request.total_time,
-                                         request.start_time)
-            self.controller.receive_completion(request, self.worker_id)
+                          (self.worker_id, self.request.idx, latency))
+            flow_id = self.request.flow_id
+            self.histograms.record_value(flow_id, latency, self.request.total_time,
+                                         self.request.start_time)
+            self.controller.receive_completion(self.request, self.worker_id)
             logging.debug('Worker {}: Request {} finished execution at core {}'
-                          ' at {}'.format(self.worker_id, request.idx,
+                          ' at {}'.format(self.worker_id, self.request.idx,
                                           self.core_id, self.env.now))
         else:
             yield self.env.timeout(time_slice + float(
@@ -158,8 +169,8 @@ class CoreScheduler(object):
 
     # Start up if not already looping
     def become_active(self):
-        if (self.active):
-            return
+        #if (self.active):
+        #    return
         request = None
 
         # Become idle only after process finishes
@@ -197,7 +208,10 @@ class CoreScheduler(object):
                     self.queue.resource.release(req)
 
                 if p:
+                    start_time = self.env.now
                     yield p
+                    if self.start_time != start_time:
+                        return
 
         logging.debug("CoreScheduler: Core {} becomes idle at {}"
                       .format(self.core_id, self.env.now))

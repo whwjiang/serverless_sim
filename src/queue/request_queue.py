@@ -1,4 +1,5 @@
 import simpy
+import bisect
 import logging
 import collections
 
@@ -36,7 +37,6 @@ class FIFORequestQueue(RequestQueue):
         else:
             self.enqueue(request)
 
-
     def empty(self):
         return len(self.q) == 0
 
@@ -44,6 +44,43 @@ class FIFORequestQueue(RequestQueue):
         if len(self.q) == 0:
             return None
         return self.q.popleft()
+
+
+class SRPTRequestQueue(RequestQueue):
+
+    def __init__(self, env, size, dequeue_time, flow_config):
+        super(SRPTRequestQueue, self).__init__(env, size)
+        # TODO: If size is finite
+        self.q = []
+        self.dequeue_time = dequeue_time
+
+        #Passing in this just so match the previous version
+        self.flow_config = flow_config
+
+        # Assuming queue can only be accessed once at a time
+        self.resource = simpy.Resource(env, capacity=1)
+
+    def enqueue(self, request):
+        bisect.insort(self.q, request)
+
+    def enqueue_front(self, request):
+        self.q.insert(0, request)
+
+    def renqueue(self, request):
+        if (self.flow_config[request.flow_id]['enq_front']):
+            self.enqueue_front(request)
+        else:
+            self.enqueue(request)
+
+    def empty(self):
+        return len(self.q) == 0
+
+    def dequeue(self):
+        if len(self.q) == 0:
+            return None
+        value = self.q[0]
+        del self.q[0]
+        return value
 
 
 class PerFlowRequestQueue(RequestQueue):

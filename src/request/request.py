@@ -8,3 +8,6 @@ class Request(object):
         self.start_time = start_time
         self.flow_id = flow_id
         self.expected_length = exec_time
+
+    def __lt__(self, other):
+        return self.exec_time < other.exec_time

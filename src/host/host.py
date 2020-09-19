@@ -47,6 +47,70 @@ class CoreGroup(object):
             core.set_notifier(notifier)
 
 
+class SRPTQueueHost(object):
+
+    def __init__(self, env, controller, worker_id, num_cores, histograms,
+                 deq_cost, flow_config, opts):
+
+        self.env = env
+        self.worker_id = worker_id
+        self.core_group = CoreGroup()
+        self.queue = SRPTRequestQueue(env, -1, deq_cost, flow_config)
+
+        for i in range(num_cores):
+            new_core = CoreScheduler(env, controller, histograms, worker_id, i,
+                                     flow_config)
+            new_core.set_queue(self.queue)
+            new_core.set_host(self)
+            self.core_group.append_idle_core(new_core)
+
+    def receive_request(self, request):
+        logging.debug('Worker %d: Received request %d from flow %d at %f' %
+                      (self.worker_id, request.idx, request.flow_id,
+                       self.env.now))
+
+
+        # Putting active cores into list
+        activate_core = self.core_group.pop_one_idle_core()
+        if activate_core:
+            self.queue.enqueue(request)
+            self.env.process(activate_core.become_active())
+            self.core_group.append_active_core(activate_core)
+        else:
+            logging.debug('Worker %d: Received request %d at %f'
+                          ' all cores busy' % (self.worker_id, request.idx,
+                          self.env.now))
+            min_exec_time = request.exec_time
+            min_idx = -1
+            i = 0
+            for core in self.core_group.active_cores:
+                if (((core.request.exec_time - (self.env.now -
+                    core.start_time)) > request.exec_time) and
+                    ((core.request.exec_time - (self.env.now -
+                    core.start_time)) > min_exec_time)):
+                    min_idx = i
+                    min_exec_time = (core.request.exec_time -
+                                     (self.env.now - core.start_time))
+            if min_idx == -1:
+                # Enqueue new request
+                # FIXME: Enqueue at the right position
+                self.queue.enqueue(request)
+            else:
+                # Preempt currently running request
+                core = self.core_group.active_cores[min_idx]
+                logging.debug('Worker %d: Core %d preempting request %d at %f '
+                              'for request %d' % (self.worker_id, core.core_id,
+                              core.request.idx, self.env.now, request.idx))
+                core.request.exec_time -= self.env.now - core.start_time
+                self.queue.enqueue_front(core.request)
+                # Schedule the new request with the shortest execution time
+                self.queue.enqueue_front(request)
+                self.env.process(core.become_active())
+
+    def core_become_idle(self, core, done_request):
+        self.core_group.core_become_idle(core)
+
+
 class GlobalQueueHost(object):
 
     def __init__(self, env, controller, worker_id, num_cores, histograms,

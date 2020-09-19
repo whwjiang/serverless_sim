@@ -198,6 +198,67 @@ class LeastLoadedController(Controller):
             self.env.process(self.assign_to_worker(queued_request, worker_idx))
 
 
+class LeastLoadedSRPTController(Controller):
+
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histogram, opts):
+        super(LeastLoadedSRPTController, self).__init__(env, num_workers,
+                                                        num_cores, capacity,
+                                                        latency, flow_config,
+                                                        histogram, opts)
+        self.capacity = capacity
+        self.worker_loads = [0] * num_workers
+        self.workers = []
+        for i in range(num_workers):
+            if 'core_list' in flow_config[0]:
+                new_worker = SRPTQueueHost(env, self, i,
+                                           flow_config[0]['core_list'][i],
+                                           histogram, 0, flow_config, opts)
+            else:
+                new_worker = SRPTQueueHost(env, self, i, num_cores,
+                                           histogram, 0, flow_config, opts)
+            self.workers.append(new_worker)
+
+    def receive_request(self, request):
+        logging.info('Controller: Received request %d from flow %d at %f' %
+                     (request.idx, request.flow_id, self.env.now))
+
+        # Find least-loaded worker
+        worker_idx = self.worker_loads.index(min(self.worker_loads))
+        if self.worker_loads[worker_idx] == self.capacity:
+            worker_idx = -1
+
+        # If we reached capacity, wait until a worker becomes available
+        if worker_idx == -1:
+            self.queue.enqueue(request)
+            logging.info('LeastLoadedSRPTController: Enqueuing request %d from'
+                         ' flow %d at %f' % (request.idx, request.flow_id,
+                                             self.env.now))
+            return
+
+        # Take the overhead into account and assign request for
+        # execution
+        self.worker_loads[worker_idx] += 1
+        self.env.process(self.assign_to_worker(request, worker_idx))
+
+    def assign_to_worker(self, request, worker_idx):
+        yield self.env.timeout(self.latency)
+        logging.info('LeastLoadedSRPTController: Assign request %d from flow'
+                     ' %d at %f to worker %d' % (request.idx,
+                                                 request.flow_id,
+                                                 self.env.now, worker_idx))
+        self.workers[worker_idx].receive_request(request)
+
+    def receive_completion(self, request, worker_idx):
+        logging.info('LeastLoadedSRPTController: Received completion from request'
+                     ' %d from flow %d at %f from worker %d' %
+                     (request.idx, request.flow_id, self.env.now, worker_idx))
+        self.worker_loads[worker_idx] -= 1
+        queued_request = self.queue.dequeue()
+        if queued_request:
+            self.worker_loads[worker_idx] += 1
+            self.env.process(self.assign_to_worker(queued_request, worker_idx))
+
 class ProportionalLeastLoadedController(Controller):
 
     def __init__(self, env, num_workers, num_cores, capacity, latency,

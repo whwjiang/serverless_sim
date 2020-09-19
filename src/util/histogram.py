@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import json
+import logging
 from hdrh.histogram import HdrHistogram
 
 class EndException(Exception):
@@ -36,6 +37,8 @@ class Histogram(object):
 
     def record_value(self, flow, value, exec_time, start_time):
         if self.active_requests == 0 and self.env.now > 2 * self.time:
+            raise EndException
+        if self.env.now > 1000 * self.time:
             raise EndException
         # Do not record values the region of interest
         if start_time < self.time or start_time > 2 * self.time:
@@ -92,6 +95,7 @@ class Histogram(object):
                 'dropped_requests': self.dropped[i]
             }
             info.append(new_value)
+        logging.debug('Active requests %d' % (self.active_requests))
         print json.dumps(info)
 
     def drop_request(self, flow_id):

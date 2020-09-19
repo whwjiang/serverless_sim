@@ -7,10 +7,10 @@ import json
 import matplotlib.pyplot as plt
 from operator import itemgetter
 
-MARKER_SIZE = 15.0
-LABEL_SIZE = 40.0
+MARKER_SIZE = 20.0
+LABEL_SIZE = 48.0
 LEGEND_SIZE = 36
-TICK_SIZE = 36
+TICK_SIZE = 44
 LINE_WIDTH = 5.0
 
 def get_slowdown(filename):
@@ -41,7 +41,7 @@ def get_slowdown50(filename):
 
 
 # Plot Lognormal Slowdown p99 -- 1 worker -- 12 cores
-plt.figure(figsize=(20,15))
+plt.figure(figsize=(20,10))
 
 lb_load, lb_slowdown99 = get_slowdown('../out/osdi2020/'
                                       'fcfs_log_1worker_12cores')
@@ -86,11 +86,12 @@ plt.ylim(0, 10)
 plt.xlim(0, 1)
 plt.xticks(fontsize=TICK_SIZE)
 plt.yticks(fontsize=TICK_SIZE)
-plt.savefig('./images/p99_log_1worker_12cores.png')
+plt.savefig('./images/p99_log_1worker_12cores.png',
+            bbox_inches='tight', dpi=600)
 
 
 # Plot Lognormal Latency p99 -- 1 worker -- 12 cores
-plt.figure(figsize=(20,15))
+plt.figure(figsize=(20,10))
 
 lb_load, lb_latency99 = get_latency99('../out/osdi2020/'
                                       'fcfs_log_1worker_12cores')
@@ -134,7 +135,8 @@ plt.xlim(0, 1)
 plt.xticks(fontsize=TICK_SIZE)
 plt.yticks(fontsize=TICK_SIZE)
 
-plt.savefig('./images/p99_latency_log_1worker_12cores.png')
+plt.savefig('./images/p99_latency_log_1worker_12cores.png',
+            bbox_inches='tight',dpi=600)
 
 
 # Plot Lognormal Slowdown p50 -- 1 worker -- 12 cores
@@ -193,7 +195,7 @@ plt.savefig('./images/p50_log_1worker_12cores.png')
 ##########################################################################
 
 # Plot Lognormal Slowdown p99 -- 4 workers -- 12 cores
-plt.figure(figsize=(20,15))
+plt.figure(figsize=(20,8))
 
 lb_load, lb_slowdown99 = get_slowdown('../out/osdi2020/'
                                       'fcfs_log_4workers_12cores')
@@ -208,12 +210,18 @@ pc_load, pc_slowdown99 = get_slowdown('../out/osdi2020/'
 random_ps_ps_load, random_ps_ps_slowdown99 = get_slowdown('../out/osdi2020/'
                                         'random_log_4workers_12cores')
 random_ps_ps_slowdown99.append(1000)
+ps_srpt_load, ps_srpt_slowdown99 = get_slowdown('../out/eurosys2021/'
+                                                'srpt_log_4workers_12cores')
+ps_srpt_slowdown99.append(1000)
 
 plt.plot(lb_load, lb_slowdown99, marker='o', label='Late Binding',
          color='firebrick', linewidth=LINE_WIDTH, markersize=MARKER_SIZE)
 plt.plot(lb_load, pc_ps_slowdown99, marker='v', color='darkorchid',
          label='E / C / L / PS', linewidth=LINE_WIDTH,
          markeredgewidth=LINE_WIDTH / 2.0, markersize=MARKER_SIZE)
+plt.plot(lb_load, ps_srpt_slowdown99, marker='^', color='olive',
+         linewidth=LINE_WIDTH, markeredgewidth=LINE_WIDTH / 2.0,
+         markersize=MARKER_SIZE, label='E / S / L / SRPT')
 plt.plot(lb_load, ps_ps_slowdown99, marker='x', color='darkgreen',
          linewidth=LINE_WIDTH, markeredgewidth=LINE_WIDTH / 2.0,
          markersize=MARKER_SIZE, label='E / S / L / PS')
@@ -224,12 +232,13 @@ plt.plot(lb_load, random_ps_ps_slowdown99, marker='h', color='mediumblue',
 
 plt.xlabel('Load', fontsize=LABEL_SIZE)
 plt.ylabel('99% Slowdown', fontsize=LABEL_SIZE)
-plt.legend(ncol=2, fontsize=LEGEND_SIZE, loc='upper left')
+plt.legend(ncol=2, fontsize=LEGEND_SIZE - 4, loc='upper left')
 plt.ylim(0, 10)
 plt.xlim(0, 1)
 plt.xticks(fontsize=TICK_SIZE)
 plt.yticks(fontsize=TICK_SIZE)
-plt.savefig('./images/p99_log_4workers_12cores.png')
+plt.savefig('./images/p99_log_4workers_12cores.png', bbox_inches='tight',
+            dpi=600)
 
 ##########################################################################
 ##########################################################################
@@ -260,15 +269,15 @@ plt.plot(lb_load, lb_slowdown99, marker='o', label='Late Binding',
 plt.plot(lb_load, pc_ps_slowdown99, marker='v', color='darkorchid',
          label='E / C / L / PS', linewidth=LINE_WIDTH,
          markeredgewidth=LINE_WIDTH / 2.0, markersize=MARKER_SIZE)
+plt.plot(lb_load, ps_prop_slowdown99, marker='>', color='salmon',
+         linewidth=LINE_WIDTH, markeredgewidth=LINE_WIDTH / 2.0,
+         markersize=MARKER_SIZE, label='E / S / PL / PS')
 plt.plot(lb_load, ps_ps_slowdown99, marker='x', color='darkgreen',
          linewidth=LINE_WIDTH, markeredgewidth=LINE_WIDTH / 2.0,
          markersize=MARKER_SIZE, label='E / S / L / PS')
 plt.plot(random_load, random_slowdown99, marker='h', color='mediumblue',
          linewidth=LINE_WIDTH, markeredgewidth=LINE_WIDTH / 2.0,
          markersize=MARKER_SIZE, label='E / S / R / PS')
-plt.plot(lb_load, ps_prop_slowdown99, marker='>', color='salmon',
-         linewidth=LINE_WIDTH, markeredgewidth=LINE_WIDTH / 2.0,
-         markersize=MARKER_SIZE, label='E / S / PL / PS')
 
 plt.xlabel('Load', fontsize=LABEL_SIZE)
 plt.ylabel('99% Slowdown', fontsize=LABEL_SIZE)

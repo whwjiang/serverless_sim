@@ -80,6 +80,7 @@ class HeavyTailRequestGenerator(RequestGenerator):
             # Generate inter-arrival time
             s = self.inter_gen.next()
             yield self.env.timeout(s)
+            self.hist.add_request()
 
             # Generate request
             # NOTE Percentage must be integer
