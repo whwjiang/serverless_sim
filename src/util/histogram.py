@@ -18,6 +18,8 @@ class Histogram(object):
         self.cores = cores
         self.flow_config = flow_config
         self.exec_time = [0 for i in range(len(flow_config))]
+        self.latency = [0 for i in range(len(flow_config))]
+        self.slowdown = [0 for i in range(len(flow_config))]
         self.violations = [0 for i in range(len(flow_config))]
         self.dropped = [0 for i in range(len(flow_config))]
         self.completed = [0 for i in range(len(flow_config))]
@@ -47,6 +49,8 @@ class Histogram(object):
         self.global_histogram.record_value(1000.0 * value)
         self.histograms[flow].record_value(1000.0 * value)
         self.slowdowns[flow].record_value(1000.0 * value / exec_time)
+        self.latency[flow] += 1000.0 * value
+        self.slowdown[flow] += 1000.0 * value / exec_time
         self.exec_time[flow] += exec_time
         self.completed[flow] += 1
         if self.flow_config[flow].get('slo'):
@@ -74,10 +78,16 @@ class Histogram(object):
             latency90 = self.histograms[i].get_value_at_percentile(90)
             latency99 = self.histograms[i].get_value_at_percentile(99)
 
+            # Get average latency
+            latency_avg = self.latency[i] / total_count
+
             # Get the 50%-90%-99% slowdown
             slowdown50 = self.slowdowns[i].get_value_at_percentile(50)
             slowdown90 = self.slowdowns[i].get_value_at_percentile(90)
             slowdown99 = self.slowdowns[i].get_value_at_percentile(99)
+
+            # Get average slowdown
+            slowdown_avg = self.slowdown[i] / total_count
 
             # Prepare the json for output
             new_value = {
@@ -86,9 +96,11 @@ class Histogram(object):
                 'latency50': latency50 / 1000.0,
                 'latency90': latency90 / 1000.0,
                 'latency99': latency99 / 1000.0,
+                'latency_avg': latency_avg / 1000.0,
                 'slowdown50': slowdown50 / 1000.0,
                 'slowdown90': slowdown90 / 1000.0,
                 'slowdown99': slowdown99 / 1000.0,
+                'slowdown_avg': slowdown_avg / 1000.0,
                 'total_throughput': 1.0 * self.completed[i] / self.time,
                 'total_completed': self.completed[i],
                 'slo_success': 1.0 - (1.0 * self.violations[i] / total_count),
