@@ -413,3 +413,48 @@ class RandomController(Controller):
         logging.info('RandomController: Received completion from request'
                      ' %d from flow %d at %f from worker %d' %
                      (request.idx, request.flow_id, self.env.now, worker_idx))
+
+
+class LocalityController(Controller):
+
+    def __init__(self, env, num_workers, num_cores, capacity, latency,
+                 flow_config, histogram, opts):
+        super(LocalityController, self).__init__(env, num_workers,
+                                                 num_cores, capacity,
+                                                 latency, flow_config,
+                                                 histogram, opts)
+        self.worker_capacity = [capacity] * num_workers
+
+    def receive_request(self, request):
+        logging.info('LocalityController: Received request %d from flow %d at %f' %
+                     (request.idx, request.flow_id, self.env.now))
+
+        # Find if there is a worker with available capacity
+        worker_idx = -1
+        worker_idx = request.idx % len(self.worker_capacity)
+        if self.worker_capacity[worker_idx] < 1:
+            worker_idx = random.randint(0, len(self.worker_capacity) - 1)
+
+        self.worker_capacity[worker_idx] -= 1
+
+        # If yes, take the overhead into account and assign request for
+        # execution
+        self.env.process(self.assign_to_worker(request, worker_idx))
+
+    def assign_to_worker(self, request, worker_idx):
+        yield self.env.timeout(self.latency)
+        logging.info('LocalityController: Assign request %d from flow'
+                     ' %d at %f to worker %d' % (request.idx,
+                                                 request.flow_id,
+                                                 self.env.now, worker_idx))
+        self.workers[worker_idx].receive_request(request)
+
+    def receive_completion(self, request, worker_idx):
+        logging.info('LocalityController: Received completion from request'
+                     ' %d from flow %d at %f from worker %d' %
+                     (request.idx, request.flow_id, self.env.now, worker_idx))
+        self.worker_capacity[worker_idx] += 1
+        queued_request = self.queue.dequeue()
+        if queued_request:
+            self.worker_capacity[worker_idx] -= 1
+            self.env.process(self.assign_to_worker(queued_request, worker_idx))

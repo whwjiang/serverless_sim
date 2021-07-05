@@ -73,6 +73,10 @@ class HeavyTailRequestGenerator(RequestGenerator):
         inv_load = 1.0 / self.load
         mean = inv_load * self.mean / self.num_cores
         self.inter_gen = inter_gen(mean, opts)
+        if opts.has_key("request_types"):
+            self.request_types = opts["request_types"]
+        else:
+            self.request_types = 0
 
     def run(self):
         idx = 0
@@ -86,6 +90,13 @@ class HeavyTailRequestGenerator(RequestGenerator):
             # NOTE Percentage must be integer
             is_heavy = random.randint(0, 999) < self.heavy_percent * 10
             exec_time = self.heavy_exec_time if is_heavy else self.exec_time
+
+            if self.request_types > 0:
+                if random.randInt(0, 99) < 98:
+                    idx = 0
+                else:
+                    idx = random.randInt(1,49)
+
             self.host.receive_request(Request(idx, exec_time, self.env.now,
                                               self.flow_id, self.mean))
 

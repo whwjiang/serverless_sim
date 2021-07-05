@@ -32,6 +32,7 @@ gen_dict = {
     'staticcore': 'StaticCoreAllocationHost',
     'latebinding': 'LateBindingController',
     'leastloaded': 'LeastLoadedController',
+    'locality': 'LocalityController',
     'leastloadedsrpt': 'LeastLoadedSRPTController',
     'lps': 'LPSController',
     'heterogeneousll': 'HeterogeneousLeastLoadedController',
