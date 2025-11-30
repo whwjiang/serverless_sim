@@ -25,6 +25,7 @@ class Histogram(object):
         self.completed = [0 for i in range(len(flow_config))]
         self.print_values = opts.print_values
         self.time = time
+        self.window_start = opts.window
         self.env = env
         self.active_requests = 0
         if self.print_values:
@@ -33,7 +34,7 @@ class Histogram(object):
 
     def add_request(self):
         # Do not record values the region of interest
-        if self.env.now < self.time or self.env.now > 2 * self.time:
+        if self.env.now < self.window_start or self.env.now > 2 * self.time:
             return
         self.active_requests += 1
 
@@ -43,7 +44,7 @@ class Histogram(object):
         if self.env.now > 1000 * self.time:
             raise EndException
         # Do not record values the region of interest
-        if start_time < self.time or start_time > 2 * self.time:
+        if start_time < self.window_start or start_time > 2 * self.time:
             return
 
         self.global_histogram.record_value(1000.0 * value)
@@ -79,7 +80,7 @@ class Histogram(object):
             latency99 = self.histograms[i].get_value_at_percentile(99)
 
             # Get average latency
-            latency_avg = self.latency[i] / total_count
+            latency_avg = self.latency[i] / total_count if total_count > 0 else 0.0
 
             # Get the 50%-90%-99% slowdown
             slowdown50 = self.slowdowns[i].get_value_at_percentile(50)
@@ -87,12 +88,11 @@ class Histogram(object):
             slowdown99 = self.slowdowns[i].get_value_at_percentile(99)
 
             # Get average slowdown
-            slowdown_avg = self.slowdown[i] / total_count
+            slowdown_avg = self.slowdown[i] / total_count if total_count > 0 else 0.0
 
             # Prepare the json for output
             new_value = {
-                'avg_exec_time': (1.0 * self.exec_time[i] /
-                self.histograms[i].get_total_count()),
+                'avg_exec_time': (1.0 * self.exec_time[i] / total_count) if total_count > 0 else 0.0,
                 'latency50': latency50 / 1000.0,
                 'latency90': latency90 / 1000.0,
                 'latency99': latency99 / 1000.0,
@@ -103,7 +103,7 @@ class Histogram(object):
                 'slowdown_avg': slowdown_avg / 1000.0,
                 'total_throughput': 1.0 * self.completed[i] / self.time,
                 'total_completed': self.completed[i],
-                'slo_success': 1.0 - (1.0 * self.violations[i] / total_count),
+                'slo_success': 1.0 - (1.0 * self.violations[i] / total_count) if total_count > 0 else 0.0,
                 'dropped_requests': self.dropped[i]
             }
             info.append(new_value)

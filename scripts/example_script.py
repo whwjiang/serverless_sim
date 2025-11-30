@@ -123,7 +123,7 @@ def run_sim(deq_cost, host, cores, config_json, queue_policy,
 
     for p in running_jobs:
         out, err = p.communicate()
-        output = json.loads(out)
+        output = json.loads(out.decode('utf-8'))
         for i in range(len(config_json)):
             per_flow_latency[i].append(output[i]['latency'])
             per_flow_throughput[i].append(output[i]['per_core_through'])

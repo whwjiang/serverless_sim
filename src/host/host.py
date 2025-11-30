@@ -1,5 +1,6 @@
 import sys
 import logging
+import simpy
 from queue.request_queue import *
 from scheduler.scheduler import *
 from scheduler.load_balancer import LoadBalancer
