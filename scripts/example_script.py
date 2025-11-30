@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import copy
@@ -84,7 +84,7 @@ def main():
             running.remove(p)
         time.sleep(1)
 
-    print "Winding down"
+    print("Winding down")
 
     # Wind down phase
     for run in running:
@@ -95,11 +95,11 @@ def run_sim(deq_cost, host, cores, config_json, queue_policy,
             iterations, seeds):
     # Create config file
     conf, config_file = tempfile.mkstemp()
-    os.write(conf, json.dumps(config_json))
+    os.write(conf, json.dumps(config_json).encode('utf-8'))
     os.close(conf)
 
     # Run the simulation
-    sim_args = ["../../src/sim.py",
+    sim_args = ["../src/sim.py",
                 "--cores", str(cores),
                 "--workload-conf", str(config_file),
                 "--host-type", str(host),
