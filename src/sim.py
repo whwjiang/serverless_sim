@@ -86,6 +86,25 @@ def main():
     parser.add_argument('--latency', dest='latency', action='store',
                         help='Set the controller-worker communication latency',
                         default=0.0, type=float)
+
+
+    parser.add_argument("--steal-work", dest="steal_work", action="store_true",
+                        help="Enable host work stealing", default=False)
+    parser.add_argument("--hot", dest="steal_hot", action="store_true",
+                        help="Only steal hot work from hosts", default=False)
+    parser.add_argument("--steal-max", dest="steal_maximum", action="store",
+                        help="Maximum request a host can steal at a time", default=20, type=int)
+    parser.add_argument("--steal-timer", dest="steal_timer", action="store",
+                        help="Time interval for host work stealing", default=60, type=float)
+
+    # TODO: (More general) Make more request generators??
+    # TODO: Set default costs more accurate to read papers
+    parser.add_argument("--cost-cold", dest="cost_cold", action="store",
+                        help="Cold startup time cost (milliseconds)", default=500, type=int)
+    parser.add_argument("--cost-hot", dest="cost_hot", action="store",
+                        help="Hot startup time cost (milliseconds)", default=150, type=int)
+
+
     group.add_argument('--queue-policy', dest='queue_policy', action='store',
                        help=('Set the queue policy to be followed by the per'
                              ' flow queue, ignored in any other queue'

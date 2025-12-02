@@ -136,6 +136,26 @@ class CoreScheduler(object):
 
         time_slice = self.flow_config[request.flow_id].get('time_slice')
         if (time_slice == 0 or time_slice >= request.exec_time):
+
+            # Take into account start costs (cold/hot)
+            start_cost = self.host.cold_start_cost
+            data_temp = "COLD"
+            if request.flow_id in self.host.hot_data:
+                data_temp = "HOT"
+                start_cost = self.host.hot_start_cost
+
+            # Tear down hot containers if not used for specific amount of time
+            stale = list()
+            for key, val in self.host.hot_data.items():
+                if key != self.request.flow_id and self.env.now - val >= 5:
+                    stale.append(key)
+            for key in stale:
+                del self.host.hot_data[key]
+
+            self.host.hot_data[request.flow_id] = self.env.now
+            logging.debug(f"Worker {self.worker_id}.{self.core_id}: Request {self.request.idx} Type:{self.request.flow_id} {data_temp}!!")
+            yield self.env.timeout(start_cost)
+
             yield self.env.timeout(request.exec_time)
             if (self.env.now - self.start_time + 1e-5 < self.request.exec_time):
                 #logging.debug('Worker {}.{}:Request {} yielded early {} at {}'.format(

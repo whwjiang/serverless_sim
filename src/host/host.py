@@ -122,12 +122,24 @@ class GlobalQueueHost(object):
         self.core_group = CoreGroup()
         self.queue = FIFORequestQueue(env, -1, deq_cost, flow_config)
 
+        self.all_hosts = controller.workers
+        self.hot_data = dict()
+        self.cold_start_cost = float(opts.cost_cold) / 1000
+        self.hot_start_cost = float(opts.cost_hot) / 1000
+        self.latency = controller.latency
+        self.steal_hot = opts.steal_hot
+        self.steal_maximum = opts.steal_maximum
+        self.steal_timer = opts.steal_timer
+
         for i in range(num_cores):
             new_core = CoreScheduler(env, controller, histograms, worker_id, i,
                                      flow_config)
             new_core.set_queue(self.queue)
             new_core.set_host(self)
             self.core_group.append_idle_core(new_core)
+
+        if opts.steal_work:
+            self.env.process(self.steal_work())
 
     def receive_request(self, request):
         logging.debug('Worker %d: Received request %d from flow %d at %f' %
@@ -145,6 +157,47 @@ class GlobalQueueHost(object):
 
     def core_become_idle(self, core, done_request):
         self.core_group.core_become_idle(core)
+
+    def steal_work(self):
+        while True:
+            busiest_host = None
+            yield self.env.timeout(self.steal_timer)
+
+            if self.steal_hot:
+                for host in self.all_hosts:
+                    union = host.hot_data.keys() | self.hot_data.keys()
+                    if len(union) > 0:
+                        if not busiest_host or len(host.queue) > len(busiest_host.queue):
+                            busiest_host = host
+
+                if busiest_host and busiest_host.worker_id != self.worker_id:
+                    logging.debug(f"Worker {self.worker_id} stealing hot work {self.env.now}")
+                    to_steal = list()
+                    for request in busiest_host.queue.q:
+                        if request.flow_id in self.hot_data:
+                            to_steal.append(request)
+                        if len(to_steal) == self.steal_maximum:
+                            break
+
+                    for request in to_steal:
+                        busiest_host.queue.q.remove(request)
+                        self.queue.enqueue(request)
+                        self.hot_data[request.flow_id] = self.env.now
+                        yield self.env.timeout(self.latency)
+            else:
+                for host in self.all_hosts:
+                    if not busiest_host or len(host.queue) > len(busiest_host.queue):
+                        busiest_host = host
+
+                # Don't steal work from ourselves
+                if busiest_host and busiest_host.worker_id != self.worker_id:
+                    logging.debug(f"Worker {self.worker_id} stealing work {self.env.now}")
+                    for i in range(self.steal_maximum):
+                        request = busiest_host.queue.dequeue()
+                        if request is None:
+                            break
+                        self.queue.enqueue(request)
+                        yield self.env.timeout(self.latency)
 
 
 class MultiQueueHost(object):
