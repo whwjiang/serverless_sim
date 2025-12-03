@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import json
 import logging
@@ -108,7 +108,7 @@ class Histogram(object):
             }
             info.append(new_value)
         logging.debug('Active requests %d' % (self.active_requests))
-        print json.dumps(info)
+        print(json.dumps(info))
 
     def drop_request(self, flow_id):
         self.dropped[flow_id] += 1
