@@ -1,8 +1,7 @@
 import math
 import random
-from request import Request
+from request.request import Request
 import numpy as np
-
 
 class RequestGenerator(object):
 
@@ -13,6 +12,7 @@ class RequestGenerator(object):
         self.host = host
         self.load = load
         self.num_cores = num_cores
+        self.action = None
 
     def set_host(self, host):
         self.host = host
@@ -35,7 +35,7 @@ class RequestGenerator(object):
 
 
 class MultipleRequestGenerator(object):
-    def __init__(self, histogram, env, host):
+    def __init__(self, env, host):
         self.env = env
         self.host = host
         self.generators = []

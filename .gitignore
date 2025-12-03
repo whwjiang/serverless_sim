@@ -2,3 +2,4 @@
 *.swp
 out/*
 nohup.out
+.DS_Store

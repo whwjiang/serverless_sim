@@ -7,7 +7,6 @@ import simpy
 import logging
 import argparse
 
-
 # import matplotlib.pyplot as plt
 from util.histogram import *
 
@@ -21,6 +20,7 @@ gen_dict = {
     'heavy_tail': 'HeavyTailRequestGenerator',
     'poisson_arrival': 'PoissonArrivalGenerator',
     'lognormal_arrival': 'LogNormalArrivalGenerator',
+    'base_arrival': 'InterArrivalGenerator',
     'exponential_request': 'ExponentialRequestGenerator',
     'lognormal_request': 'LogNormalRequestGenerator',
     'normal_request': 'NormalRequestGenerator',
@@ -47,16 +47,16 @@ def main():
 
     parser.add_argument('-v', '--verbose', dest='verbose',
                         action='count', help='Increase verbosity (specify'
-                        ' multiple times for more)')
+                        ' multiple times for more)', default=0)
     parser.add_argument('-g', '--print-hist', action='store_true', dest='hist',
                         help='Print request latency histogram', default=False)
     parser.add_argument('-s', '--seed', dest='seed', action='store',
-                        help='Set the seed for request generator', default=100)
+                        help='Set the seed for request generator', default=100, type=int)
     parser.add_argument('-t', '--sim_time', dest='sim_time', action='store',
-                        help='Set the simulation time', default=3600)
+                        help='Set the simulation time', default=3600, type=int)
     parser.add_argument('--workload-conf', dest='work_conf', action='store',
                         help='Configuration file for the load generation'
-                        ' functions', default="../config/work.json")
+                        ' functions', default="../config/work.json", type=str)
 
     group = parser.add_argument_group('Controller and Host Options')
     group.add_argument('--controller-type', dest='controller_type',
@@ -67,26 +67,29 @@ def main():
     group.add_argument('--host-type', dest='host_type', action='store',
                        help=('Set the host configuration (global queue,'
                              ' local queue, shinjuku, per flow queues,'
-                             ' static core allocation)'), default='global')
+                             ' static core allocation)'), default='global', type=str)
     group.add_argument('--deq-cost', dest='deq_cost', action='store',
-                       help='Set the dequeuing cost', default=0.0)
+                       help='Set the dequeuing cost', default=0.0, type=float)
     parser.add_argument('-c', '--cores', dest='cores', action='store',
                         help='Set the number of cores of the system',
-                        default=8)
+                        default=8, type=int)
     parser.add_argument('-w', '--workers', dest='workers', action='store',
                         help='Set the number of worker hosts of the system',
-                        default=1)
+                        default=1, type=int)
+    parser.add_argument('-d', '--window', dest='window', action='store',
+                        help='Set time for simulation time start',
+                        default=0.0, type=float)
     parser.add_argument('--capacity', dest='capacity', action='store',
                         help=('Set the number of concurrent requests that can'
                               ' be executing on each worker host'),
-                        default=12)
+                        default=12, type=int)
     parser.add_argument('--latency', dest='latency', action='store',
                         help='Set the controller-worker communication latency',
-                        default=0)
+                        default=0.0, type=float)
     group.add_argument('--queue-policy', dest='queue_policy', action='store',
                        help=('Set the queue policy to be followed by the per'
                              ' flow queue, ignored in any other queue'
-                             ' configuration'), default='FlowQueues')
+                             ' configuration'), default='FlowQueues', type=str)
     parser.add_argument_group(group)
 
     group = parser.add_argument_group('Print Options')
@@ -115,7 +118,8 @@ def main():
     env = simpy.Environment()
 
     # Parse the configuration file
-    flow_config = json.loads(open(opts.work_conf).read())
+    with open(opts.work_conf, 'r') as f:
+        flow_config = json.loads(f.read())
 
     # Create a histogram per flow and a global histogram
     histograms = Histogram(env, int(opts.sim_time), len(flow_config),
@@ -135,7 +139,7 @@ def main():
     #                                     histograms, len(flow_config),
     #                                     [0.4, 0.4])
 
-    multigenerator = MultipleRequestGenerator(histograms, env, sim_ctrl)
+    multigenerator = MultipleRequestGenerator(env, sim_ctrl)
 
     # Create one object per flow
     for flow in flow_config:
@@ -160,7 +164,7 @@ def main():
 
     # Run the simulation
     try:
-        env.run(until=1000 * opts.sim_time)
+        env.run(until=1000 * opts.sim_time * 2)
     except EndException:
         # Print results in json format
         histograms.print_info()
