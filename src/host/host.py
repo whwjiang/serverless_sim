@@ -130,6 +130,7 @@ class GlobalQueueHost(object):
         self.steal_hot = opts.steal_hot
         self.steal_maximum = opts.steal_maximum
         self.steal_timer = opts.steal_timer
+        self.steal_threshold = opts.steal_threshold
 
         for i in range(num_cores):
             new_core = CoreScheduler(env, controller, histograms, worker_id, i,
@@ -162,6 +163,10 @@ class GlobalQueueHost(object):
         while True:
             busiest_host = None
             yield self.env.timeout(self.steal_timer)
+
+            if len(self.queue) > self.steal_threshold:
+                logging.debug(f"Worker {self.worker_id}: Skipping work stealing")
+                continue
 
             if self.steal_hot:
                 for host in self.all_hosts:

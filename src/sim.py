@@ -21,6 +21,8 @@ gen_dict = {
     'poisson_arrival': 'PoissonArrivalGenerator',
     'lognormal_arrival': 'LogNormalArrivalGenerator',
     'base_arrival': 'InterArrivalGenerator',
+    'bursty_arrival': 'BurstyArrivalGenerator',
+    'trickle_arrival': 'TrickleArrivalGenerator',
     'exponential_request': 'ExponentialRequestGenerator',
     'lognormal_request': 'LogNormalRequestGenerator',
     'normal_request': 'NormalRequestGenerator',
@@ -96,6 +98,9 @@ def main():
                         help="Maximum request a host can steal at a time", default=20, type=int)
     parser.add_argument("--steal-timer", dest="steal_timer", action="store",
                         help="Time interval for host work stealing", default=60, type=float)
+    parser.add_argument("--steal-threshold", dest="steal_threshold", action="store",
+                        help="Queue size threshold to warrent work stealing", default=50, type=int)
+
 
     # TODO: (More general) Make more request generators??
     # TODO: Set default costs more accurate to read papers
