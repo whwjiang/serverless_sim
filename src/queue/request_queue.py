@@ -45,6 +45,9 @@ class FIFORequestQueue(RequestQueue):
             return None
         return self.q.popleft()
 
+    def __len__(self):
+        return len(self.q)
+
 
 class SRPTRequestQueue(RequestQueue):
 

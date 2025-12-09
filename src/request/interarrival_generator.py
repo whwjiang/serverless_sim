@@ -24,3 +24,24 @@ class LogNormalArrivalGenerator(InterArrivalGenerator):
 
     def next(self):
         return np.random.lognormal(self.mean, self.scale)
+
+class BurstyArrivalGenerator(InterArrivalGenerator):
+    def __init__(self, mean, opts):
+        self.idx = 0
+        self.burst_count = opts.get("burst_count", 100)
+        self.rate = opts.get("req_per_sec", 5)
+        self.delay = opts.get("delay", 20)
+
+    def next(self):
+        base = self.delay if self.idx % self.burst_count == 0 else 0
+        self.idx += 1
+        return base + (1 / self.rate)
+
+class TrickleArrivalGenerator(InterArrivalGenerator):
+    def __init__(self, mean, opts):
+        self.rate = opts.get("num_req", 10)
+        self.span = opts.get("req_span", 60)
+
+    def next(self):
+        return self.span / self.rate
+
