@@ -177,6 +177,11 @@ class GlobalQueueHost(object):
 
                 if busiest_host and busiest_host.worker_id != self.worker_id and len(busiest_host.queue) > 0:
                     logging.debug(f"Worker {self.worker_id} stealing hot work {self.env.now}")
+
+                    # Acquire busiest queue lock
+                    req = busiest_host.queue.resource.request()
+                    yield req
+
                     to_steal = list()
                     for request in busiest_host.queue.q:
                         if request.flow_id in self.hot_data:
@@ -197,6 +202,11 @@ class GlobalQueueHost(object):
                 # Don't steal work from ourselves
                 if busiest_host and busiest_host.worker_id != self.worker_id and len(busiest_host.queue) > 0:
                     logging.debug(f"Worker {self.worker_id} stealing work {self.env.now}")
+
+                    # Acquire busiest queue lock
+                    req = busiest_host.queue.resource.request()
+                    yield req
+
                     for i in range(self.steal_maximum):
                         request = busiest_host.queue.dequeue()
                         if request is None:
