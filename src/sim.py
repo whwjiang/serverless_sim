@@ -109,6 +109,8 @@ def main():
     parser.add_argument("--cost-hot", dest="cost_hot", action="store",
                         help="Hot startup time cost (milliseconds)", default=150, type=int)
 
+    parser.add_argument("--host-queue-size", dest="queue_per_core", action="store",
+                        help="Number of queue-able requests in worker host per core", default=2, type=int)
 
     group.add_argument('--queue-policy', dest='queue_policy', action='store',
                        help=('Set the queue policy to be followed by the per'

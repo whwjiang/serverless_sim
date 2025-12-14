@@ -175,7 +175,7 @@ class GlobalQueueHost(object):
                         if not busiest_host or len(host.queue) > len(busiest_host.queue):
                             busiest_host = host
 
-                if busiest_host and busiest_host.worker_id != self.worker_id:
+                if busiest_host and busiest_host.worker_id != self.worker_id and len(busiest_host.queue) > 0:
                     logging.debug(f"Worker {self.worker_id} stealing hot work {self.env.now}")
                     to_steal = list()
                     for request in busiest_host.queue.q:
@@ -195,7 +195,7 @@ class GlobalQueueHost(object):
                         busiest_host = host
 
                 # Don't steal work from ourselves
-                if busiest_host and busiest_host.worker_id != self.worker_id:
+                if busiest_host and busiest_host.worker_id != self.worker_id and len(busiest_host.queue) > 0:
                     logging.debug(f"Worker {self.worker_id} stealing work {self.env.now}")
                     for i in range(self.steal_maximum):
                         request = busiest_host.queue.dequeue()

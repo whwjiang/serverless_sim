@@ -42,7 +42,7 @@ class LateBindingController(Controller):
         if 'core_list' in flow_config[0]:
             self.worker_capacity = flow_config[0]['core_list'][:]
         else:
-            self.worker_capacity = [num_cores] * num_workers
+            self.worker_capacity = [num_cores * opts.queue_per_core] * num_workers
 
     def receive_request(self, request):
         logging.info('Controller: Received request %d from flow %d at %f' %
@@ -59,6 +59,7 @@ class LateBindingController(Controller):
         # If not, enqueue and wait until one become available
         if worker_idx == -1:
             self.queue.enqueue(request)
+            #print("Queue Size: {}".format(len(self.queue)))
             logging.info('LateBindingController: Enqueuing request %d from'
                          ' flow %d at %f' % (request.idx, request.flow_id,
                                              self.env.now))
